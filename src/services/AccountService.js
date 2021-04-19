@@ -22,7 +22,7 @@
 const RosettaSDK = require('rosetta-node-sdk');
 const Errors = require('../../config/errors');
 const config = require('../../config');
-const DigiByteIndexer = require('../digibyteIndexer');
+const ChainIndexer = require('../chainIndexer');
 const rpc = require('../rpc');
 
 const Types = RosettaSDK.Client;
@@ -63,7 +63,7 @@ const balance = async (params) => {
 
   try {
     // Get the Account Balance from the UTXO Indexer
-    const accountData = await DigiByteIndexer.getAccountBalance(address, atBlock);
+    const accountData = await ChainIndexer.getAccountBalance(address, atBlock);
     const { balance } = accountData;
 
     // BlockSymbol

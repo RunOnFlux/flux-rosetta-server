@@ -39,7 +39,6 @@ const Errors = require('../../config/errors');
 const networkList = async (params) => {
   // eslint-disable-next-line no-unused-vars  
   const { metadataRequest } = params;
-
   const response = new Types.NetworkListResponse(
     Config.serverConfig.networkIdentifiers,
   );
@@ -60,7 +59,7 @@ const networkOptions = async (params) => {
 
   const version = new Types.Version(
     Config.rosettaVersion,
-    Config.digibyteVersion,
+    Config.fluxVersion,
   );
 
   const allow = new Types.Allow(

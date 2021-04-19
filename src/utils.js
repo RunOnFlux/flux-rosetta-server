@@ -4,7 +4,7 @@ const Types = RosettaSDK.Client;
 
 const Config = require('../config');
 const Constants = require('./constants');
-const DigiByteIndexer = require('./digibyteIndexer');
+const ChainIndexer = require('./chainIndexer');
 
 const OperationTypes = Config.serverConfig.operationTypes;
 const OperationStatus = Config.serverConfig.operationStatuses;
@@ -31,6 +31,11 @@ const txOperations = async (tx, isMempoolTx = false) => {
   const ret = [];
   let operationId = 0;
 
+  if (!tx.vin || !tx.vout) {
+    // This may be a "Confirming a zelnode" transaction
+    return ret;
+  }
+
   // ToDo: Pending state?
   const status = isMempoolTx ? OperationStatus.SUCCESS.status : OperationStatus.SUCCESS.status;
 
@@ -44,7 +49,7 @@ const txOperations = async (tx, isMempoolTx = false) => {
     const { txid, vout } = input;
 
     // Get the utxo data from utxo indexer
-    const data = await DigiByteIndexer.getUtxoData(txid, vout);
+    const data = await ChainIndexer.getUtxoData(txid, vout);
     if (data == null || !data.address) continue;
 
     const nextOperationId = operationId++;

@@ -4,14 +4,14 @@
   </a>
 </p>
 <h3 align="center">
-   DigiByte Rosetta Server (beta)
+   Flux Rosetta Server (beta)
 </h3>
 <p align="center">
 	Node Version: 1.0.0<br>
-	Rosetta Version: 1.4.1
+	Rosetta Version: 1.3.1
 </p>
 <p align="center">
-	DigiByte Rosetta Node offering a unified API according to the standard proposed by Coinbase.
+	Flux Rosetta Node offering a unified API according to the standard proposed by Coinbase.
 </p>
 
 > This implementation is a Proof-of-Concept implementation for the [NodeJS Rosetta SDK](https://github.com/SmartArray/digibyte-rosetta-nodeapi/tree/1.4.1) developed by DigiByte
@@ -22,14 +22,14 @@
 ## Docker Build Steps
 1. Clone the container using git
 ```bash
-git clone https://github.com/SmartArray/digibyte-rosetta-server.git
+git clone https://github.com/sygem/flux-rosetta-server.git
 ```
 2. Build the docker image
 ```bash
 # Build the docker image for testnet (may take a while).
 # Other build args are documented in ./Dockerfile
-cd digibyte-rosetta-server
-docker build -t digibyte/rosetta:latest --build-arg use_testnet=1 .
+cd flux-rosetta-server
+docker build -t flux/rosetta:latest --build-arg use_testnet=1 .
 ```
 3. Start the docker container
 ```bash
@@ -38,7 +38,7 @@ docker build -t digibyte/rosetta:latest --build-arg use_testnet=1 .
 # Port 8080/tcp is the port of the rosetta api server.
 # Port 12026/tcp is the p2p testnet port.
 # If you are using mainnet, make sure you replace the port 12026 with 12024.
-docker run -p 12026:12026 -p 8080:8080 digibyte/rosetta:latest
+docker run -p 12026:12026 -p 8080:8080 flux/rosetta:latest
 ```
 
 ## Test

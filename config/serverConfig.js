@@ -10,7 +10,7 @@ const LABEL_FAILED = 'FAILED';
 const LABEL_TRANSFER = 'TRANSFER';
 const LABEL_COINBASE = 'COINBASE';
 
-const currencyCode = 'DGB';
+const currencyCode = 'FLUX';
 const currencyDecimals = 8;
 const currency = new Types.Currency(currencyCode, currencyDecimals);
 

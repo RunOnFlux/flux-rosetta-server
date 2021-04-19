@@ -1,5 +1,24 @@
 /* DigiByte Networks Params for Bitcore-lib */
 
+const mainnet = {
+  name: 'flux_mainnet',
+  bech32prefix: 'dgb',
+  pubkeyhash: 0x1e,
+  privatekey: 0x80,
+  privatekeyOld: 0x9e,
+  scripthash: 0x3f,
+  scripthashTwo: 0x05,
+  xpubkey: 0x0488b21e,
+  xprivkey: 0x0488ade4,
+  networkMagic: 0x24e92764,
+  port: 12024,
+  dnsSeeds: [
+    'seed.digibyte.co',
+    'seed.digibyte.io',
+    'digiexplorer.info',
+  ],
+};
+
 const livenet = {
   name: 'dgb_livenet',
   alias: 'dgb_mainnet',
@@ -46,4 +65,5 @@ module.exports = {
   livenet,
   testnet,
   regtest,
+  mainnet,
 };

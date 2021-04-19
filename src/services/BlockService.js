@@ -29,7 +29,7 @@ const Config = require('../../config');
 const Errors = require('../../config/errors');
 
 const SyncBlockCache = require('../syncBlockCache');
-const DigiByteIndexer = require('../digibyteIndexer');
+const ChainIndexer = require('../chainIndexer');
 
 /* Data API: Block */
 
@@ -85,7 +85,7 @@ const block = async (params, req) => {
    * utxo indexer.
    */
   const isSyncerRequest = req.headers['syncer-secret'] == Config.syncer.syncerSecret;
-  const requestedDataAvailable = DigiByteIndexer.safeLastBlockSymbol >= blockData.height;  
+  const requestedDataAvailable = ChainIndexer.safeLastBlockSymbol >= blockData.height;  
 
   /**
    * Create a Full Block Identifier according to the Rosetta spec.
@@ -116,6 +116,7 @@ const block = async (params, req) => {
      * Process transaction operations if the requested data
      * was already indexed by the utxo syncer.
      */    
+    console.log(blockData);
     transactions = await Promise.all(
       blockData.tx.map((tx) => utils.transactionToRosettaType(tx))
     );
@@ -126,7 +127,7 @@ const block = async (params, req) => {
      * This error won't be thrown if the request was made by the syncer.
      */
     throw Errors.NODE_SYNCING.addDetails({
-      syncedTo: DigiByteIndexer.safeLastBlockSymbol,
+      syncedTo: ChainIndexer.safeLastBlockSymbol,
     });
   }
 

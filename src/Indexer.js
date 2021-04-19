@@ -796,45 +796,49 @@ class Indexer {
   }
 
   async batchTransactionInputs(tx, txSymbol, blockSymbol) {
-    for (const input of tx.vin) {
-      // 1. Step: Check if utxo exists
-      const { txid, vout, coinbase } = input;
+    // not all transactions have inputs
+    // e.g. a89fcfa77810e5b6bae6a4be065d8db9f0aa7a11bedce37b9ddf91372fe0fa4e
+    if (tx.vin) {
+      for (const input of tx.vin) {
+        // 1. Step: Check if utxo exists
+        const { txid, vout, coinbase } = input;
 
-      if (!txid || vout == null) {
-        if (!coinbase) throw new Error(`Invalid input @ blockSymbol = ${blockSymbol}`);
-        continue;
-      }
+        if (!txid || vout == null) {
+          if (!coinbase) throw new Error(`Invalid input @ blockSymbol = ${blockSymbol}`);
+          continue;
+        }
 
-      const pair = await this.utxoExists(txid, vout);
-      if (pair == null) {
-        throw new Error(`Blockchain error. Utxo ${txid}:${vout} does not exist.`);
-      }
+        const pair = await this.utxoExists(txid, vout);
+        if (pair == null) {
+          throw new Error(`Blockchain error. Utxo ${txid}:${vout} does not exist.`);
+        }
 
-      // 2. Step: Invalidate utxo.
-      // This will set the keys `spentOnBlock`, `spentInTx` symbols of the current utxo.
-      try {
-        const decoded = UtxoValueSchema.decode(pair.value);
-        await this.invalidateUtxo(
-          // txid, vout, sats, addressSymbol, blockSymbol, spentInTx, spentOnBlock, serializedKey
-          txid,
-          vout,
+        // 2. Step: Invalidate utxo.
+        // This will set the keys `spentOnBlock`, `spentInTx` symbols of the current utxo.
+        try {
+          const decoded = UtxoValueSchema.decode(pair.value);
+          await this.invalidateUtxo(
+            // txid, vout, sats, addressSymbol, blockSymbol, spentInTx, spentOnBlock, serializedKey
+            txid,
+            vout,
 
-          // sats, addressSymbol and createdOnBlockSymbol
-          // will be used from existing utxo.
-          decoded.sats, 
-          decoded.address,
-          decoded.createdOnBlock, 
+            // sats, addressSymbol and createdOnBlockSymbol
+            // will be used from existing utxo.
+            decoded.sats, 
+            decoded.address,
+            decoded.createdOnBlock, 
 
-          // UTXO got invalidated in this transaction (used as input)
-          // and in this block symbol.
-          txSymbol,
-          blockSymbol, 
-          pair.key,
-        );
-      } catch (e) {
-        console.error(pair)
-        console.error(pair.value)
-        console.error(e);
+            // UTXO got invalidated in this transaction (used as input)
+            // and in this block symbol.
+            txSymbol,
+            blockSymbol, 
+            pair.key,
+          );
+        } catch (e) {
+          console.error(pair)
+          console.error(pair.value)
+          console.error(e);
+        }
       }
     }
   }
@@ -896,55 +900,57 @@ class Indexer {
   async batchTransactionOutputs(tx, txSymbol, blockSymbol) {
     const ops = this.dbBatches.utxo;
 
-    // Get the addresses
-    for (const out of tx.vout) {
-      out.address = await this.getAddressSymbol(out);
-    }
-
-    // Get binary encodings
-    const kvPairs = tx.vout.map((out) => {
-      const sats = convertToSatoshis(out.value);
-
-      return {
-        key: this.serializeUtxoKey(txSymbol, out.n),
-        value: this.serializeUtxoValue(sats, out.address.value, blockSymbol),
-
-        // Store original data
-        txid: tx.txid,
-        n: out.n,
-        sats,
-        output: out,
-      };
-    });
-
-    // Add each utxo to the batch queue
-    for (const pair of kvPairs) {
-      const identifier = `${pair.txid}:${pair.n}`;
-
-      if (!pair.output.address || !pair.output.address.key) {
-        continue;
+    if (tx.vout) {
+      // Get the addresses
+      for (const out of tx.vout) {
+        out.address = await this.getAddressSymbol(out);
       }
 
-      ops.push({
-        type: 'put',
-        key: pair.key,
-        value: pair.value,
+      // Get binary encodings
+      const kvPairs = tx.vout.map((out) => {
+        const sats = convertToSatoshis(out.value);
+
+        return {
+          key: this.serializeUtxoKey(txSymbol, out.n),
+          value: this.serializeUtxoValue(sats, out.address.value, blockSymbol),
+
+          // Store original data
+          txid: tx.txid,
+          n: out.n,
+          sats,
+          output: out,
+        };
       });
 
-      if (this.lastSeenUtxos[identifier]) {
-        throw new Error('UTXO should only exist once');
+      // Add each utxo to the batch queue
+      for (const pair of kvPairs) {
+        const identifier = `${pair.txid}:${pair.n}`;
+
+        if (!pair.output.address || !pair.output.address.key) {
+          continue;
+        }
+
+        ops.push({
+          type: 'put',
+          key: pair.key,
+          value: pair.value,
+        });
+
+        if (this.lastSeenUtxos[identifier]) {
+          throw new Error('UTXO should only exist once');
+        }
+
+        this.lastSeenUtxos[identifier] = {
+          txSymbol,
+          txid: pair.txid,
+          block: blockSymbol,
+          n: pair.n,
+          sats: pair.sats,
+          address: pair.output.address.value,
+        };
+
+        await this.batchUtxoAdditionToAddress(tx, txSymbol, pair.output);
       }
-
-      this.lastSeenUtxos[identifier] = {
-        txSymbol,
-        txid: pair.txid,
-        block: blockSymbol,
-        n: pair.n,
-        sats: pair.sats,
-				address: pair.output.address.value,
-      };
-
-      await this.batchUtxoAdditionToAddress(tx, txSymbol, pair.output);
     }
   }
 

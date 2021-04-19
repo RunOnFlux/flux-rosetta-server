@@ -1,31 +1,31 @@
 {
-  "name": "digibyte-rosetta-server",
-  "version": "1.0.0",
+  "name": "flux-rosetta-server",
+  "version": "1.0.1",
   "description": "Rosetta Node Implementation using Rosetta SDK",
   "main": "index.js",
   "scripts": {
     "test-api": "cd test && docker-compose up",
     "test": "mocha test/js/*.test.js",
-    "build": "docker build -t digibyte-rosetta:latest .",
+    "build": "docker build -t flux-rosetta:latest .",
     "start": "node --max-old-space-size=4096 index.js",
     "dev": "nodemon .",
     "lint": "eslint ."
   },
   "dependencies": {
-    "rosetta-node-sdk": "git+https://github.com/SmartArray/digibyte-rosetta-nodeapi.git#1.4.1",
-    "bitcore-lib": "^8.22.0",
     "bitcoind-rpc": "^0.8.1",
-    "js-binary": "^1.2.0",
+    "bitcore-lib": "^8.22.0",
     "bluebird": "^3.7.2",
-    "level": "^6.0.1"
+    "js-binary": "^1.2.0",
+    "level": "^6.0.1",
+    "rosetta-node-sdk": "git+https://github.com/SmartArray/digibyte-rosetta-nodeapi.git#1.4.1"
   },
   "keywords": [
     "rosetta",
     "coinbase",
-    "digibyte",
+    "flux",
     "server"
   ],
-  "author": "yoshijaeger",
+  "author": "yoshijaeger,sygem",
   "license": "MIT",
   "devDependencies": {
     "axios": "^0.20.0",

@@ -23,20 +23,22 @@ const RosettaSDK = require('rosetta-node-sdk');
 
 const Config = require('./config');
 const ServiceHandlers = require('./src/services');
-const DigiByteSyncer = require('./src/digibyteSyncer');
-const DigiByteIndexer = require('./src/digibyteIndexer');
+const ChainSyncer = require('./src/chainSyncer');
+const ChainIndexer = require('./src/chainIndexer');
 const rpc = require('./src/rpc');
 
 console.log(`                                                                    
- ____  _     _ _____     _          _____             _   _          _____       _     
-|    \\|_|___|_| __  |_ _| |_ ___   | __  |___ ___ ___| |_| |_ ___   |   | |___ _| |___ 
-|  |  | | . | | __ -| | |  _| -_|  |    -| . |_ -| -_|  _|  _| .'|  | | | | . | . | -_|
-|____/|_|_  |_|_____|_  |_| |___|  |__|__|___|___|___|_| |_| |__,|  |_|___|___|___|___|
-        |___|       |___|                                                              
+______ _             ______               _   _          _   _           _      
+|  ___| |            | ___ \\             | | | |        | \\ | |         | |     
+| |_  | |_   ___  __ | |_/ /___  ___  ___| |_| |_ __ _  |  \\| | ___   __| | ___ 
+|  _| | | | | \\ \\/ / |    // _ \\/ __|/ _ \\ __| __/ _\` | | . \` |/ _ \\ / _\` |/ _ \\
+| |   | | |_| |>  <  | |\\ \\ (_) \\__ \\  __/ |_| || (_| | | |\\  | (_) | (_| |  __/
+\\_|   |_|\\__,_/_/\\_\\ \\_| \\_\\___/|___/\\___|\\__|\\__\\__,_| \\_| \\_/\\___/ \\__,_|\\___|
+
 
              Version                  ${Config.version}
              Rosetta Version          ${Config.rosettaVersion}
-             DigiByte Node Version    ${Config.digibyteVersion}
+             Flux Node Version        ${Config.fluxVersion}
              Networks                 ${JSON.stringify(Config.serverConfig.networkIdentifiers)}
              Port                     ${Config.port}
 `);
@@ -87,22 +89,22 @@ if (Config.offline) {
 
 /* Initialize Syncer */
 const startSyncer = async () => {
-  console.log(`Starting sync from height ${DigiByteIndexer.lastBlockSymbol + 1}...`);
-  await DigiByteSyncer.initSyncer();
+  console.log(`Starting sync from height ${ChainIndexer.lastBlockSymbol + 1}...`);
+  await ChainSyncer.initSyncer();
 
   continueSyncIfNeeded();
   return true;
 };
 
 const continueSyncIfNeeded = async () => {
-  const currentHeight = DigiByteIndexer.lastBlockSymbol;
+  const currentHeight = ChainIndexer.lastBlockSymbol;
   const blockCountResponse = await rpc.getBlockCountAsync();
   const blockCount = blockCountResponse.result;
 
   if (currentHeight >= blockCount) {
     // If the sync block height equals the best block height,
     // set the syncer as synced.
-    DigiByteSyncer.setIsSynced();
+    ChainSyncer.setIsSynced();
     return setTimeout(continueSyncIfNeeded, 10000);
   }
 
@@ -112,8 +114,8 @@ const continueSyncIfNeeded = async () => {
   const syncCount = Math.min(blockCount - nextHeight, 1000);
   const targetHeight = nextHeight + syncCount;
 
-  await DigiByteSyncer.sync(nextHeight, targetHeight);
-  await DigiByteIndexer.saveState();
+  await ChainSyncer.sync(nextHeight, targetHeight);
+  await ChainIndexer.saveState();
 
   setImmediate(() => {
     // Continue to sync, but using the event queue.
@@ -154,7 +156,7 @@ const init = async () => {
   await startServer();
 
   // Init the UTXO indexing service
-  await DigiByteIndexer.initIndexer();
+  await ChainIndexer.initIndexer();
 
   // Start the UTXO indexer
   await startSyncer();
