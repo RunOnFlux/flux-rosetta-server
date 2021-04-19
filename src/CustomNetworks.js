@@ -2,20 +2,17 @@
 
 const mainnet = {
   name: 'flux_mainnet',
-  bech32prefix: 'dgb',
-  pubkeyhash: 0x1e,
+  pubkeyhash: 0x1cb8,
   privatekey: 0x80,
-  privatekeyOld: 0x9e,
-  scripthash: 0x3f,
-  scripthashTwo: 0x05,
+  scripthash: 0x1cbd,
   xpubkey: 0x0488b21e,
   xprivkey: 0x0488ade4,
+  zaddr: 0x169a,
+  zkey: 0xab36,
   networkMagic: 0x24e92764,
-  port: 12024,
+  port: 19332,
   dnsSeeds: [
-    'seed.digibyte.co',
-    'seed.digibyte.io',
-    'digiexplorer.info',
+    'dnsseed.runonflux.io',
   ],
 };
 
