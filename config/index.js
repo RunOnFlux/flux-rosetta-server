@@ -3,7 +3,7 @@ const serverConfig = require('./serverConfig');
 const crypto = require('crypto');
 
 const DEFAULT_LISTENING_HOST = 'localhost';
-const DEFAULT_ROSETTA_VERSION = '1.3.1';
+const DEFAULT_ROSETTA_VERSION = '1.4.10';
 const DEFAULT_RPC_PORT = 19332;
 const DEFAULT_RPC_USER = 'user';
 const DEFAULT_RPC_PASS = 'pass';
