@@ -116,7 +116,6 @@ const block = async (params, req) => {
      * Process transaction operations if the requested data
      * was already indexed by the utxo syncer.
      */    
-    console.log(blockData);
     transactions = await Promise.all(
       blockData.tx.map((tx) => utils.transactionToRosettaType(tx))
     );
@@ -155,6 +154,12 @@ const block = async (params, req) => {
 * */
 // eslint-disable-next-line no-unused-vars
 const blockTransaction = async (params) => {
+  const { blockRequest } = params;
+
+  let blockData;
+  let parentBlock;  
+  let transactions;
+
   throw Errors.ENDPOINT_DISABLED;
 };
 

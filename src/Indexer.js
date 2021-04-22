@@ -268,6 +268,7 @@ class Indexer {
           }
         }
 
+        //console.log(block);
         const blockExists = await this.getBlockSymbol(block.hash);
         const previousBlockHash = block.previousblockhash;
         const previousBlockSymbol = await this.getBlockSymbol(previousBlockHash);
@@ -420,107 +421,111 @@ class Indexer {
       minTxSymbol = Math.min(minTxSymbol, txSym);
 
       // 2) Loop through inputs and re-validate the utxos
-      for (let input of tx.vin) {
-        const { txid, vout, coinbase } = input;
+      if (tx.vin) {
+        for (let input of tx.vin) {
+          const { txid, vout, coinbase } = input;
 
-        if (!txid || vout == null) {
-          if (!coinbase) throw new Error(`Invalid input @ blockSymbol = ${block.height}`);
-          continue;
-        }
+          if (!txid || vout == null) {
+            if (!coinbase) throw new Error(`Invalid input @ blockSymbol = ${block.height}`);
+            continue;
+          }
 
-        console.log(`  Revalidating ${txid}:${vout}`);
+          console.log(`  Revalidating ${txid}:${vout}`);
 
-        const pair = await this.utxoExists(txid, vout);
-        if (pair == null) {
-          throw new Error(`Blockchain error. Utxo ${txid}:${vout} does not exist.`);
-        }
+          const pair = await this.utxoExists(txid, vout);
+          if (pair == null) {
+            throw new Error(`Blockchain error. Utxo ${txid}:${vout} does not exist.`);
+          }
 
-        // 2.1) Re-validate utxo.
-        // Spent utxos must be set to unspent.
-        // This will set the keys `spentOnBlock`, `spentInTx` symbols to null.
-        try {
-          const decoded = UtxoValueSchema.decode(pair.value);
-          decoded.spentOnBlock = null;
-          decoded.spentInTx = null;
+          // 2.1) Re-validate utxo.
+          // Spent utxos must be set to unspent.
+          // This will set the keys `spentOnBlock`, `spentInTx` symbols to null.
+          try {
+            const decoded = UtxoValueSchema.decode(pair.value);
+            decoded.spentOnBlock = null;
+            decoded.spentInTx = null;
 
-          const value = UtxoValueSchema.encode(decoded);
+            const value = UtxoValueSchema.encode(decoded);
 
-          this.dbBatches.utxo.push({
-            type: 'put',
-            key: pair.key,
-            value: value,
-          });
+            this.dbBatches.utxo.push({
+              type: 'put',
+              key: pair.key,
+              value: value,
+            });
 
-        } catch (e) {
-          console.error(pair)
-          console.error(pair.value)
-          console.error(e);
+          } catch (e) {
+            console.error(pair)
+            console.error(pair.value)
+            console.error(e);
+          }
         }
       }
 
       // 3) Remove newly created outputs
-      for (const output of tx.vout) {
-        try {
-          /**
-           * 3.1) Remove the utxo
-           */
+      if (tx.vout) {
+        for (const output of tx.vout) {
+          try {
+            /**
+             * 3.1) Remove the utxo
+             */
 
-          // Get the address of the output
-          const address = await this.getAddressSymbol(output);
-          const addressSymbol = address.value;
+            // Get the address of the output
+            const address = await this.getAddressSymbol(output);
+            const addressSymbol = address.value;
 
-          // Delete the utxo
-          //console.log(`  Deleting ${tx.txid}:${output.n}`);
-          const key = this.serializeUtxoKey(txSym, output.n);
+            // Delete the utxo
+            //console.log(`  Deleting ${tx.txid}:${output.n}`);
+            const key = this.serializeUtxoKey(txSym, output.n);
 
-          this.dbBatches.utxo.push({
-            type: 'del',
-            key: key,
-          });
+            this.dbBatches.utxo.push({
+              type: 'del',
+              key: key,
+            });
 
-          if (!address || !address.key) {
-            continue;
-          }
-
-          /**
-           * 3.2) Delete the utxo from the address utxo list
-           */
-
-          // Get the utxo list
-          //console.log(`  Deleting ${tx.txid}:${output.n} from ${address.key}`);
-          const serializedUtxoList = await this.db['address-utxos'].get(encodeSymbol(addressSymbol))
-            .catch(() => EMPTY_UTXO_LIST);
-          
-          // Decode the existing structure
-          const deserializedUtxoList = AddressValueSchema.decode(serializedUtxoList);  
- 
-          // Remove the affected utxo
-          for (let i = deserializedUtxoList.txSymbol.length; i >= 0; --i) {
-            if (deserializedUtxoList.txSymbol[i] == txSym &&
-                deserializedUtxoList.vout[i] == output.n) {
-              // console.log('REMOVING UTXO', i, `(${output.n} | ${txSym})`)
-              deserializedUtxoList.txSymbol.splice(i, 1);
-              deserializedUtxoList.vout.splice(i, 1);
-              break;
+            if (!address || !address.key) {
+              continue;
             }
+
+            /**
+             * 3.2) Delete the utxo from the address utxo list
+             */
+
+            // Get the utxo list
+            //console.log(`  Deleting ${tx.txid}:${output.n} from ${address.key}`);
+            const serializedUtxoList = await this.db['address-utxos'].get(encodeSymbol(addressSymbol))
+              .catch(() => EMPTY_UTXO_LIST);
+            
+            // Decode the existing structure
+            const deserializedUtxoList = AddressValueSchema.decode(serializedUtxoList);  
+  
+            // Remove the affected utxo
+            for (let i = deserializedUtxoList.txSymbol.length; i >= 0; --i) {
+              if (deserializedUtxoList.txSymbol[i] == txSym &&
+                  deserializedUtxoList.vout[i] == output.n) {
+                // console.log('REMOVING UTXO', i, `(${output.n} | ${txSym})`)
+                deserializedUtxoList.txSymbol.splice(i, 1);
+                deserializedUtxoList.vout.splice(i, 1);
+                break;
+              }
+            }
+
+            // Save the list again
+            this.dbBatches['address-utxos'].push({
+              type: 'put',
+              key: encodeSymbol(addressSymbol),
+              value: AddressValueSchema.encode(deserializedUtxoList),
+            });
+
+            /**
+             * 3.3) We do not remove the address symbol
+             *   because it will most likely appear in future.
+             */
+
+          } catch (e) {
+            console.error('ERROR', tx.txid, `output-${output.n}`, e);
           }
-
-          // Save the list again
-          this.dbBatches['address-utxos'].push({
-            type: 'put',
-            key: encodeSymbol(addressSymbol),
-            value: AddressValueSchema.encode(deserializedUtxoList),
-          });
-
-          /**
-           * 3.3) We do not remove the address symbol
-           *   because it will most likely appear in future.
-           */
-
-        } catch (e) {
-          console.error('ERROR', tx.txid, `output-${output.n}`, e);
-        }
-      } 
+        } 
+      }
 
       // Delete tx symbol
       this.dbBatches['tx-sym'].push({

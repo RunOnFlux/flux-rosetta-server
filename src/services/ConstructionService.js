@@ -152,9 +152,7 @@ const constructionDerive = async (params) => {
 
   try {
     const pubKey = new PublicKey(public_key.hex_bytes);
-    console.log(pubKey);
     const address = Address.fromPublicKey(pubKey); // , undefined, 'witnesspubkeyhash');
-    console.log(address);
     return new Types.ConstructionDeriveResponse(address.toString());
 
   } catch (e) {
