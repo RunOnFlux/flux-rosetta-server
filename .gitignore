@@ -1,4 +1,6 @@
 node
 node_modules
 data
+data_testnet
 *.log
+*.sh
