@@ -49,13 +49,13 @@ const balance = async (params) => {
   const blockIdentifier = new Types.BlockIdentifier();
 
   if (accountBalanceRequest.block_identifier) {
-    if (accountBalanceRequest.block_identifier.hash) {
+    if ('hash' in accountBalanceRequest.block_identifier) {
       atBlock = accountBalanceRequest.block_identifier.hash;
       blockIdentifier.hash = accountBalanceRequest.block_identifier.hash;
     }
 
     // Prefer block index to block hash
-    if (accountBalanceRequest.block_identifier.index) {
+    if ('index' in accountBalanceRequest.block_identifier) {
       atBlock = accountBalanceRequest.block_identifier.index;
       blockIdentifier.index = accountBalanceRequest.block_identifier.index;
     }
@@ -72,7 +72,6 @@ const balance = async (params) => {
 
     // If the hash was not yet set, get the block hash using rpc.
     if (!blockIdentifier.hash) {
-      console.log('Retrieving the block hash for symbol', accountData);
       blockIdentifier.hash = await rpc.getBlockHashAsync(accountData.blockSymbol);
     }
 
