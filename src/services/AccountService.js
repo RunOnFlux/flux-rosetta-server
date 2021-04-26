@@ -96,7 +96,18 @@ const balance = async (params) => {
   }
 };
 
+const coins = async (params) => {
+  const { accountCoinsRequest } = params;
+
+  return new Types.AccountCoinsResponse(
+    //blockIdentifier,
+    //balances,
+  );
+};
+
 module.exports = {
   /* /account/balance */
   balance,
+  /* /account/coins */
+  coins,
 };

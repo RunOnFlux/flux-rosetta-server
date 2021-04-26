@@ -47,102 +47,109 @@ const block = async (params, req) => {
   let parentBlock;  
   let transactions;
 
-  /**
-   * Check if only the block index was specified during the BlockRequest.
-   * In that case, the block hash will be retrieved using direct rpc call
-   */
-  if (blockRequest.block_identifier.index != null && !blockRequest.block_identifier.hash) {
-    SyncBlockCache.get('')
-    const hashResponse = await rpc.getBlockHashAsync(blockRequest.block_identifier.index);
-    blockRequest.block_identifier.hash = hashResponse.result;
-  }
-
-  /**
-   * Get the block data using rpc call, unless it was found in a local block cache.
-   * Return COULD_NOT_FETCH_BLOCK (retriable) if for some reason the request failed. 
-   */
-  blockData = SyncBlockCache.get(blockRequest.block_identifier.hash);
-  if (blockData == null) {
-    const blockResponse = await rpc.getBlockAsync(blockRequest.block_identifier.hash, 2);
-
-    blockData = blockResponse.result;
-    if (!blockData) {
-      throw Errors.COULD_NOT_FETCH_BLOCK;
+  try {
+    /**
+     * Check if only the block index was specified during the BlockRequest.
+     * In that case, the block hash will be retrieved using direct rpc call
+     */
+    if (blockRequest.block_identifier.index != null && !blockRequest.block_identifier.hash) {
+      SyncBlockCache.get('')
+      const hashResponse = await rpc.getBlockHashAsync(blockRequest.block_identifier.index);
+      blockRequest.block_identifier.hash = hashResponse.result;
     }
 
     /**
-     * Save the block in the block cache, so that the internal syncer
-     * can still use the original data in order to index the utxo set.
+     * Get the block data using rpc call, unless it was found in a local block cache.
+     * Return COULD_NOT_FETCH_BLOCK (retriable) if for some reason the request failed. 
      */
-    SyncBlockCache.put(
-      blockData.hash,
-      blockData,
-    );    
-  }
+    blockData = SyncBlockCache.get(blockRequest.block_identifier.hash);
+    if (blockData == null) {
+      const blockResponse = await rpc.getBlockAsync(blockRequest.block_identifier.hash, 2);
 
-  /**
-   * If the correct secret is set, this request is a request made by the
-   * utxo indexer.
-   */
-  const isSyncerRequest = req.headers['syncer-secret'] == Config.syncer.syncerSecret;
-  const requestedDataAvailable = ChainIndexer.safeLastBlockSymbol >= blockData.height;  
+      blockData = blockResponse.result;
+      if (!blockData) {
+        throw Errors.COULD_NOT_FETCH_BLOCK;
+      }
 
-  /**
-   * Create a Full Block Identifier according to the Rosetta spec.
-   */
-  const queriedBlock = new Types.BlockIdentifier(
-    blockData.height,
-    blockData.hash,
-  );
+      /**
+       * Save the block in the block cache, so that the internal syncer
+       * can still use the original data in order to index the utxo set.
+       */
+      SyncBlockCache.put(
+        blockData.hash,
+        blockData,
+      );    
+    }
 
-  /**
-   * Generate the correct parent block identifier according to the
-   * Rosetta guidelines.
-   */
-  if (queriedBlock.index == 0) {
-    parentBlock = new Types.BlockIdentifier(
+    /**
+     * If the correct secret is set, this request is a request made by the
+     * utxo indexer.
+     */
+    const isSyncerRequest = req.headers['syncer-secret'] == Config.syncer.syncerSecret;
+    const requestedDataAvailable = ChainIndexer.safeLastBlockSymbol >= blockData.height;  
+
+    /**
+     * Create a Full Block Identifier according to the Rosetta spec.
+     */
+    const queriedBlock = new Types.BlockIdentifier(
       blockData.height,
       blockData.hash,
     );
-  } else {
-    parentBlock = new Types.BlockIdentifier(
-      blockData.height - 1,
-      blockData.previousblockhash,
-    );
-  }
 
-  if (requestedDataAvailable) {
     /**
-     * Process transaction operations if the requested data
-     * was already indexed by the utxo syncer.
-     */    
-    transactions = await Promise.all(
-      blockData.tx.map((tx) => utils.transactionToRosettaType(tx))
-    );
-
-  } else if (!isSyncerRequest) {
-    /**
-     * Exit if the utxo syncer hasn't indexed the requested block height.
-     * This error won't be thrown if the request was made by the syncer.
+     * Generate the correct parent block identifier according to the
+     * Rosetta guidelines.
      */
-    throw Errors.NODE_SYNCING.addDetails({
-      syncedTo: ChainIndexer.safeLastBlockSymbol,
+    if (queriedBlock.index == 0) {
+      parentBlock = new Types.BlockIdentifier(
+        blockData.height,
+        blockData.hash,
+      );
+    } else {
+      parentBlock = new Types.BlockIdentifier(
+        blockData.height - 1,
+        blockData.previousblockhash,
+      );
+    }
+
+    if (requestedDataAvailable) {
+      /**
+       * Process transaction operations if the requested data
+       * was already indexed by the utxo syncer.
+       */    
+      transactions = await Promise.all(
+        blockData.tx.map((tx) => utils.transactionToRosettaType(tx))
+      );
+
+    } else if (!isSyncerRequest) {
+      /**
+       * Exit if the utxo syncer hasn't indexed the requested block height.
+       * This error won't be thrown if the request was made by the syncer.
+       */
+      throw Errors.NODE_SYNCING.addDetails({
+        syncedTo: ChainIndexer.safeLastBlockSymbol,
+      });
+    }
+
+    /**
+     * Construct the block object that is required in the BlockResponse.
+     */
+    const block = Types.Block.constructFromObject({
+      block_identifier: queriedBlock,
+      parent_block_identifier: parentBlock,
+      timestamp: blockData.time * 1000,
+      transactions,
+      metadata: utils.blockMetadata(blockData, requestedDataAvailable),
     });
+
+    const otherTransactions = [];
+    return new Types.BlockResponse(block, otherTransactions);
+
+  } catch (e) {
+    console.error(e);
+    throw Errors.UNABLE_TO_FETCH_BLOCK;
   }
 
-  /**
-   * Construct the block object that is required in the BlockResponse.
-   */
-  const block = Types.Block.constructFromObject({
-    block_identifier: queriedBlock,
-    parent_block_identifier: parentBlock,
-    timestamp: blockData.time * 1000,
-    transactions,
-    metadata: utils.blockMetadata(blockData, requestedDataAvailable),
-  });
-
-  const otherTransactions = [];
-  return new Types.BlockResponse(block, otherTransactions);
 };
 
 /**
