@@ -1,6 +1,5 @@
 node
 node_modules
-data
-data_testnet
+data*
 *.log
 *.sh

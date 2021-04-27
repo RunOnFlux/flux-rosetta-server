@@ -22,6 +22,8 @@ const errors = {
   INSUFFICIENT_BALANCE: new Types.Error(10, 'Insufficient balance', false),
   EXPECTED_REQUIRED_ACCOUNTS: new Types.Error(11, 'No relevant accounts with their required amounts passed to this endpoint.', false),
   EXPECTED_RELEVANT_INPUTS: new Types.Error(12, 'No relevant inputs were passed to this endpoint', false),
+
+  UNABLE_TO_RETRIEVE_COINS: new Types.Error(13, 'The account coins could not be retrieved', true),
 };
 
 module.exports = errors;

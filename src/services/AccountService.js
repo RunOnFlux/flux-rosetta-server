@@ -68,7 +68,7 @@ const balance = async (params) => {
 
     // BlockSymbol
     blockIdentifier.index = accountData.blockSymbol;
-    if (accountData.blockHash) blockIdentifier.hash = accountData.blockHash;
+    if (accountData.blockHash) blockIdentifier.hash = accountData.blockHash.toString('utf-8');
 
     // If the hash was not yet set, get the block hash using rpc.
     if (!blockIdentifier.hash) {
@@ -97,12 +97,53 @@ const balance = async (params) => {
 };
 
 const coins = async (params) => {
+
   const { accountCoinsRequest } = params;
 
-  return new Types.AccountCoinsResponse(
-    //blockIdentifier,
-    //balances,
-  );
+  // Get the requested address
+  const { address } = accountCoinsRequest.account_identifier;
+
+  const includeMemPool = accountCoinsRequest.includeMemPool;
+
+  const blockIdentifier = new Types.BlockIdentifier();
+
+  try {
+    const accountData = await ChainIndexer.getAccountUtxos(address);
+
+    console.log(accountData);
+
+    // BlockSymbol
+    blockIdentifier.index = accountData.blockSymbol;
+    if (accountData.blockHash) blockIdentifier.hash = accountData.blockHash.toString('utf-8');
+
+    // If the hash was not yet set, get the block hash using rpc.
+    if (!blockIdentifier.hash) {
+      blockIdentifier.hash = await rpc.getBlockHashAsync(accountData.blockSymbol);
+    }
+
+    const coins = [];
+    for (let i = 0; i < accountData.result.length; ++i) {
+      const txhash = await ChainIndexer.getTxHash(accountData.result[i].txid);
+      const coinIdentifier = new Types.CoinIdentifier(txhash+":"+accountData.result[i].vout);
+      coins.push(
+        new Types.Coin(coinIdentifier, 
+                       new Types.Amount(accountData.result[i].sats,
+                                        config.serverConfig.currency,
+                                       ),
+                      )
+      );
+    }
+
+    return new Types.AccountCoinsResponse(
+      blockIdentifier,
+      coins,
+    );
+  }  catch (e) {
+    return Errors.UNABLE_TO_RETRIEVE_COINS.addDetails({
+      message: e.message,
+    })
+  } 
+
 };
 
 module.exports = {

@@ -41,6 +41,7 @@ const EMPTY_UTXO_LIST = AddressValueSchema.encode({
 const PREFIX_BLOCK_SYM = 'B';
 const PREFIX_SYM_BLOCK = 'b';
 const PREFIX_TX_SYM = 'T';
+const PREFIX_SYM_TX = 't';
 const PREFIX_UTXO = 'U';
 const PREFIX_ADDRESS_UTXOS = 'X';
 const PREFIX_ADDRESS_SYM = 'A';
@@ -52,6 +53,7 @@ const VALID_PREFIXES = [
   PREFIX_ADDRESS_UTXOS,
   PREFIX_ADDRESS_SYM,
   PREFIX_SYM_BLOCK,
+  PREFIX_SYM_TX,
 ];
 
 const convertToSatoshis = (value) => {
@@ -363,6 +365,7 @@ class Indexer {
       this.processBatchedBlockSymbols(batchedOperations),
       this.processBatchedBlockSymbolMappings(batchedOperations),
       this.processBatchedTxSymbols(batchedOperations),
+      this.processBatchedSymbolTxMappings(batchedOperations),
       this.processBatchedUtxos(batchedOperations),
       this.processBatchedAddressUtxoLists(batchedOperations),
       this.processMetadata(batchedOperations),
@@ -624,6 +627,14 @@ class Indexer {
     ops.length = 0;
   }
 
+  processBatchedSymbolTxMappings(list) {
+    const ops = this.dbBatches['sym-tx'];
+    const operations = this.db['sym-tx'].processList(ops);
+
+    for (let op of operations) list.push(op);
+    ops.length = 0;
+  }
+
   processBatchedBlockSymbols(list) {
     const ops = this.dbBatches['block-sym'];
     const operations = this.db['block-sym'].processList(ops);
@@ -697,6 +708,11 @@ class Indexer {
         type: 'put',
         key: hexToBin(tx.txid),
         value: encodeSymbol(this.lastTxSymbol),
+      });
+      this.dbBatches['sym-tx'].push({
+        type: 'put',
+        key: encodeSymbol(this.lastTxSymbol),
+        value: hexToBin(tx.txid),
       });
 
       await this.batchTransactionInputs(tx, this.lastTxSymbol, blockSymbol);
@@ -1021,6 +1037,21 @@ class Indexer {
     return returnSymbol(encodedSymbol);
   }
 
+  async getTxHash(symbol) {
+    let encodedSymbol;
+
+    if (typeof symbol == 'number') {
+      encodedSymbol = encodeSymbol(symbol);
+    } else {
+      encodedSymbol = symbol;
+    }
+
+    const encodedHash = await this.db['sym-tx'].get(encodedSymbol)
+      .catch((e) => console.error(e));
+
+    return binToHex(encodedHash);
+  }
+
   async getTxSymbol(hash) {
     // Return symbol from the last seen cache.
     const isLastSeen = this.lastSeenTxHashes[hash];
@@ -1059,7 +1090,7 @@ class Indexer {
 
     try {
       const addressSymbol = await this.getAddressSymbolByAddress(serializeAddress(address));
-      const utxos = await this.db['address-utxos'].get(addressSymbol.value);
+      const utxos = await this.db['address-utxos'].get(encodeSymbol(addressSymbol.value));
       const utxoList = AddressValueSchema.decode(utxos);
 
       for (let i = 0; i < utxoList.txSymbol.length; ++i) {
@@ -1082,8 +1113,12 @@ class Indexer {
     } catch (e) {
       console.error(e);
     }
+    let blockSymbol = this.lastBlockSymbol;
+    let blockHash = this.bestBlockHash;
 
-    return result;
+    return {result: result,
+            blockSymbol: blockSymbol,
+            blockHash: blockHash};
   }
 
   async getAccountBalance(address, atBlock = null) {
@@ -1168,7 +1203,7 @@ class Indexer {
 
   async getUtxoData(txid, vout) {
     try {
-      const utxo = await this.utxoExists(txid, vout);
+      const utxo = await this.utxoExistsBySymbol(txid, vout);
       if (utxo == null)
         throw new Error(`Utxo ${txid}:${vout} does not exist`);
 
@@ -1263,6 +1298,7 @@ class Indexer {
     this.createDatabaseInfo('block-sym', PREFIX_BLOCK_SYM);
     this.createDatabaseInfo('sym-block', PREFIX_SYM_BLOCK);
     this.createDatabaseInfo('tx-sym', PREFIX_TX_SYM);
+    this.createDatabaseInfo('sym-tx', PREFIX_SYM_TX);
     this.createDatabaseInfo('utxo', PREFIX_UTXO);
     this.createDatabaseInfo('address-utxos', PREFIX_ADDRESS_UTXOS);
     this.createDatabaseInfo('address-sym', PREFIX_ADDRESS_SYM);
