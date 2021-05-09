@@ -56,13 +56,17 @@ const txOperations = async (tx, isMempoolTx = false) => {
 
     ret.push(Types.Operation.constructFromObject({
       operation_identifier: new Types.OperationIdentifier(nextOperationId),
-      type: OperationTypes.TRANSFER,
+      type: OperationTypes.INPUT,
       status,
       account: new Types.AccountIdentifier(data.address),
       amount: Types.Amount.constructFromObject({
         value: -parseInt(data.sats),
         currency,
       }),
+      coin_change: new Types.CoinChange(
+        new Types.CoinIdentifier(tx.txid+":-"+vout),
+        new Types.CoinAction().created
+      ),
     }));
   }
 
@@ -80,17 +84,19 @@ const txOperations = async (tx, isMempoolTx = false) => {
     const address = output.scriptPubKey.addresses[0];
     const nextOperationId = operationId++;
 
-    let trig = false;
-
     ret.push(Types.Operation.constructFromObject({
       operation_identifier: new Types.OperationIdentifier(nextOperationId),
-      type: OperationTypes.TRANSFER,
+      type: OperationTypes.OUTPUT,
       status,
       account: new Types.AccountIdentifier(address),
       amount: Types.Amount.constructFromObject({
         value: parseInt(Math.round(output.value * Constants.SATOSHIS)),
         currency,
       }),
+      coin_change: new Types.CoinChange(
+        new Types.CoinIdentifier(tx.txid+":"+output.n),
+        new Types.CoinAction().created
+      ),
     }));
   }
 
