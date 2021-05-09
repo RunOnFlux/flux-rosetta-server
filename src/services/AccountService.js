@@ -110,8 +110,6 @@ const coins = async (params) => {
   try {
     const accountData = await ChainIndexer.getAccountUtxos(address);
 
-    console.log(accountData);
-
     // BlockSymbol
     blockIdentifier.index = accountData.blockSymbol;
     if (accountData.blockHash) blockIdentifier.hash = accountData.blockHash.toString('utf-8');
