@@ -126,9 +126,9 @@ const block = async (params, req) => {
        * Exit if the utxo syncer hasn't indexed the requested block height.
        * This error won't be thrown if the request was made by the syncer.
        */
-      throw Errors.NODE_SYNCING.addDetails({
-        syncedTo: ChainIndexer.safeLastBlockSymbol,
-      });
+      throw Errors.NODE_SYNCING;//.addDetails({
+      //  syncedTo: ChainIndexer.safeLastBlockSymbol,
+      //});
     }
 
     /**
@@ -161,12 +161,6 @@ const block = async (params, req) => {
 * */
 // eslint-disable-next-line no-unused-vars
 const blockTransaction = async (params) => {
-  const { blockRequest } = params;
-
-  let blockData;
-  let parentBlock;  
-  let transactions;
-
   throw Errors.ENDPOINT_DISABLED;
 };
 
