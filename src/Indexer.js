@@ -1203,7 +1203,7 @@ class Indexer {
 
   async getUtxoData(txid, vout) {
     try {
-      const utxo = await this.utxoExistsBySymbol(txid, vout);
+      const utxo = await this.utxoExists(txid, vout);
       if (utxo == null)
         throw new Error(`Utxo ${txid}:${vout} does not exist`);
 
