@@ -7,7 +7,8 @@ const mainNetworkIdentifier = require('./networkIdentifier');
 
 const LABEL_SUCCESS = 'SUCCESS';
 const LABEL_FAILED = 'FAILED';
-const LABEL_TRANSFER = 'TRANSFER';
+const LABEL_INPUT = 'INPUT';
+const LABEL_OUTPUT = 'OUTPUT';
 const LABEL_COINBASE = 'COINBASE';
 
 const currencyCode = 'FLUX';
@@ -27,7 +28,8 @@ const operationStatusesList = [
 ];
 
 const operationTypesList = [
-  LABEL_TRANSFER,
+  LABEL_INPUT,
+  LABEL_OUTPUT,
   LABEL_COINBASE,
 ];
 
@@ -57,7 +59,8 @@ module.exports = {
   ],
 
   operationTypes: {
-    TRANSFER: LABEL_TRANSFER,
+    INPUT: LABEL_INPUT,
+    OUTPUT: LABEL_OUTPUT,
     COINBASE: LABEL_COINBASE,
   },
 
