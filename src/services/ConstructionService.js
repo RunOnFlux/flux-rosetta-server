@@ -25,16 +25,22 @@ const {
   Address,
   PublicKey,
   Networks,
-  Transaction,
+  Script,
 } = require('bitcore-lib-zelcash');
 
-const Config = require('../../config');
+const bitcoin = require('bitgo-utxo-lib');
+const templates = require('bitgo-utxo-lib/src/templates/index');
+var reverseInplace = require("buffer-reverse/inplace")
+
+const config = require('../../config');
 const CustomNetworks = require('../CustomNetworks');
-const Network = CustomNetworks[Config.network];
+const Network = CustomNetworks[config.network];
+const BitGoNetwork = CustomNetworks.bitgo[config.network];
 
 const rpc = require('../rpc');
 const Errors = require('../../config/errors');
 const ChainIndexer = require('../chainIndexer');
+const networkIdentifier = require('../../config/networkIdentifier');
 
 const Types = RosettaSDK.Client;
 
@@ -57,25 +63,22 @@ const constructionMetadata = async (params) => {
   if (!options || !Array.isArray(options.required_balances) ||
     options.required_balances.length == 0) throw Errors.EXPECTED_REQUIRED_ACCOUNTS;
 
-  // ToDo: require change address?
-
   const relevantInputs = [];
   let change = 0;
 
   for (let requiredBalance of options.required_balances) {
     const { account, amount } = requiredBalance;
-
-    if (amount < 0) {
+    if (amount.sats < 0) {
       // Get the utxos accociated with that address.
-      const outputs = await ChainIndexer.getAccountOutputs(account);
-
+      const outputs = await ChainIndexer.getAccountUtxos(account);
       /**
        * Collect as many outputs as we need to fulfill
        * the requested balance operation.
        */
-      let missing = -amount;
+      let missing = amount.sats;
 
-      for (let output of outputs) {
+      for (var outputIndex = outputs.result.length-1; outputIndex >= 0; outputIndex--) {
+        let output = outputs.result[outputIndex];
         if (missing >= 0) continue;
         missing += output.sats;
 
@@ -83,7 +86,7 @@ const constructionMetadata = async (params) => {
          * Add this utxo to the relevant ones.
          */
         relevantInputs.push({
-          txid: output.txid,
+          txid: await ChainIndexer.getTxHash(output.txid),
           vout: output.vout,
         });
       }
@@ -102,12 +105,14 @@ const constructionMetadata = async (params) => {
     }
   }
 
-  // Return no metadata to work with
+  // Return the metadata to work with
+  // TODO: Fee calculation
   return Types.ConstructionMetadataResponse.constructFromObject({
     metadata: {
       relevant_inputs: relevantInputs,
       change,
     },
+    suggested_fee: [new Types.Amount(50000, config.serverConfig.currency)],
   });
 };
 
@@ -120,7 +125,14 @@ const constructionMetadata = async (params) => {
 * */
 const constructionSubmit = async (params) => {
   const { constructionSubmitRequest } = params;
-  return {};
+
+  const tx = Buffer.from(constructionSubmitRequest.signed_transaction, 'hex');
+  const decodedTx = JSON.parse(tx.toString());
+
+  const signedTransaction = decodedTx.transaction;
+  const hash = await rpc.sendRawTransactionAsync(signedTransaction);
+
+  return new Types.TransactionIdentifier(hash.result);
 };
 
 /**
@@ -132,7 +144,57 @@ const constructionSubmit = async (params) => {
 * */
 const constructionCombine = async (params) => {
   const { constructionCombineRequest } = params;
-  return {};
+
+  const unsignedTransaction = constructionCombineRequest.unsigned_transaction;
+
+  var tx = Buffer.from(unsignedTransaction, 'hex');
+  var decodedTx = JSON.parse(tx.toString());
+
+  const transaction = new bitcoin.Transaction.fromHex(decodedTx.transaction, BitGoNetwork);
+
+  /*var i = 0;
+  for (let input of transaction.ins) {
+    const pkData = constructionCombineRequest.signatures[i].public_key.hex_bytes;
+    var pkBuffer = Buffer.from(pkData,'hex');
+    pkBuffer = pkBuffer.slice(1, pkBuffer.length);
+    const fullsig = constructionCombineRequest.signatures[i].hex_bytes;
+    transaction.setInputScript(i, Buffer.from(fullsig,'hex'));
+    i++;
+  }*/
+  //builder.sign()
+
+  //console.log(transaction);
+
+  const txb = new bitcoin.TransactionBuilder(BitGoNetwork);
+  // TODO: Move these into the config files
+  txb.setVersion(4, true);
+  txb.setVersionGroupId(parseInt("0x892f2085", 16));
+
+  for (let outputIndex in transaction.outs) {
+    var output = transaction.outs[outputIndex];
+    txb.addOutput(output.script, output.value);
+  }
+  for (let inputIndex in transaction.ins) {
+    var input = transaction.ins[inputIndex];
+    txb.addInput(input.hash, input.index);
+  }
+  for (let inputIndex in transaction.ins) {
+    input = transaction.ins[inputIndex];
+    txb.inputs[inputIndex].prevOutType = templates.types.P2PKH;
+    
+    const pkData = constructionCombineRequest.signatures[inputIndex].public_key.hex_bytes;
+    var pkBuffer = Buffer.from(pkData,'hex').slice(1, pkBuffer.length);
+    const fullsig = constructionCombineRequest.signatures[inputIndex].hex_bytes;
+    txb.inputs[inputIndex].signatures = [Buffer.from(fullsig,'hex')];
+    txb.inputs[inputIndex].pubKeys = [Buffer.from(pkData,'hex')];
+  }
+
+  var response = {
+    transaction: txb.build().toHex(),
+    inputAmounts: decodedTx.inputAmounts
+  };
+
+  return new Types.ConstructionCombineResponse(Buffer.from(JSON.stringify(response)).toString('hex'));
 };
 
 /**
@@ -152,13 +214,12 @@ const constructionDerive = async (params) => {
 
   try {
     const pubKey = new PublicKey(public_key.hex_bytes);
-    const address = Address.fromPublicKey(pubKey); // , undefined, 'witnesspubkeyhash');
-    return new Types.ConstructionDeriveResponse(address.toString());
+    const address = Address.fromPublicKey(pubKey, networkIdentifier.network); // , undefined, 'witnesspubkeyhash');
+    return new Types.ConstructionDeriveResponse(new Types.AccountIdentifier(address.toString()));
 
   } catch (e) {
     console.error(e);
-    return Errors.UNABLE_TO_DERIVE_ADDRESS
-      .addDetails({ reason: e.message });
+    return Errors.UNABLE_TO_DERIVE_ADDRESS.addDetails({ reason: e.message });
   }
 };
 
@@ -171,20 +232,128 @@ const constructionDerive = async (params) => {
 * */
 const constructionHash = async (params) => {
   const { constructionHashRequest } = params;
-  return {};
+
+  const tx = Buffer.from(constructionHashRequest.signed_transaction, 'hex');
+  const decodedTx = JSON.parse(tx.toString());
+
+  const signedTransaction = decodedTx.transaction;
+  const transaction = new bitcoin.Transaction.fromHex(signedTransaction, BitGoNetwork);
+
+  return new Types.TransactionIdentifierResponse(new Types.TransactionIdentifier(transaction.getHash().toString('hex')));
 };
 
 /**
 * Parse a Transaction
-* Parse is called on both unsigned and signed transactions to understand the intent of the formulated transaction. This is run as a sanity check before signing (after `/construction/payloads`) and before broadcast (after `/construction/combine`).
+* Parse is called on both unsigned and signed transactions to understand the intent 
+* of the formulated transaction. This is run as a sanity check before signing 
+* (after `/construction/payloads`) and before broadcast (after `/construction/combine`).
 *
 * constructionParseRequest ConstructionParseRequest
 * returns ConstructionParseResponse
 * */
 const constructionParse = async (params) => {
   const { constructionParseRequest } = params;
-  return {};
+
+  if (constructionParseRequest.signed) {
+    return await parseSignedTransaction(constructionParseRequest);
+  } else {
+    return await parseUnsignedTransaction(constructionParseRequest);
+  }
 };
+
+const parseUnsignedTransaction = async (request) => {
+  var tx = Buffer.from(request.transaction, 'hex');
+  var decodedTx = JSON.parse(tx.toString());
+
+  const transaction = new bitcoin.Transaction.fromHex(decodedTx.transaction, BitGoNetwork);
+
+  var ops = [];
+  var index = 0;
+  for (let input of transaction.ins) {
+    ops.push(Types.Operation.constructFromObject({
+      operation_identifier: Types.OperationIdentifier.constructFromObject({
+        index: ops.length,
+        network_index: index
+      }),
+      type: config.serverConfig.operationTypes.INPUT,
+      account: new Types.AccountIdentifier(decodedTx.inputAddresses[index]),
+      amount: new Types.Amount(decodedTx.inputAmounts[index], config.serverConfig.currency),
+      coin_change: new Types.CoinChange(
+        new Types.CoinIdentifier(reverseInplace(input.hash).toString('hex')+":"+input.index),
+        new Types.CoinAction().spent
+      )
+    }));
+    index++;
+  }
+
+  for (let output of transaction.outs) {
+    ops.push(Types.Operation.constructFromObject({
+      operation_identifier: Types.OperationIdentifier.constructFromObject({
+        index: ops.length,
+        network_index: index
+      }),
+      type: config.serverConfig.operationTypes.OUTPUT,
+      account: new Types.AccountIdentifier(bitcoin.address.fromOutputScript(output.script, BitGoNetwork).toString()),
+      amount: new Types.Amount(output.value, config.serverConfig.currency),
+    }));
+    index++;
+  }
+
+  return new Types.ConstructionParseResponse(ops);
+}
+
+const parseSignedTransaction = async (request) => {
+  var tx = Buffer.from(request.transaction, 'hex');
+  var decodedTx = JSON.parse(tx.toString());
+
+  const transaction = new bitcoin.Transaction.fromHex(decodedTx.transaction, BitGoNetwork);
+
+  var ops = [];
+  var index = 0;
+  var account_identifier_signers = [];
+  var signers = [];
+
+  for (let input of transaction.ins) {
+    var decompiledScript = bitcoin.script.decompile(input.script);
+    var pk = new PublicKey(decompiledScript[1]);
+    account_identifier_signers.push(new Types.AccountIdentifier(pk.toAddress().toString()));
+    signers.push(pk.toAddress().toString());
+  
+    ops.push(Types.Operation.constructFromObject({
+      operation_identifier: Types.OperationIdentifier.constructFromObject({
+        index: ops.length,
+        network_index: index
+      }),
+      type: config.serverConfig.operationTypes.INPUT,
+      account: new Types.AccountIdentifier(pk.toAddress().toString()),
+      amount: new Types.Amount(decodedTx.inputAmounts[index], config.serverConfig.currency),
+      coin_change: new Types.CoinChange(
+        new Types.CoinIdentifier(reverseInplace(input.hash).toString('hex')+":"+input.index),
+        new Types.CoinAction().spent
+      )
+    }));
+    index++;
+  }
+
+  for (let output of transaction.outs) {
+    ops.push(Types.Operation.constructFromObject({
+      operation_identifier: Types.OperationIdentifier.constructFromObject({
+        index: ops.length,
+        network_index: index
+      }),
+      type: config.serverConfig.operationTypes.OUTPUT,
+      account: new Types.AccountIdentifier(bitcoin.address.fromOutputScript(output.script, BitGoNetwork).toString()),
+      amount: new Types.Amount(output.value, config.serverConfig.currency),
+    }));
+    index++;
+  }
+
+  return Types.ConstructionParseResponse.constructFromObject({
+    "operations": ops,
+    "account_identifier_signers": account_identifier_signers,
+    "signers": signers
+  });
+}
 
 /**
 * Generate an Unsigned Transaction and Signing Payloads
@@ -200,14 +369,66 @@ const constructionPayloads = async (params) => {
   if (!metadata || !Array.isArray(metadata.relevant_inputs) ||
     metadata.relevant_inputs.length == 0) throw Errors.EXPECTED_RELEVANT_INPUTS;
 
-  const transaction = new Transaction()
-    .from(metadata.relevant_inputs);
+  const transaction = new bitcoin.TransactionBuilder(BitGoNetwork);
+  // TODO: Move these into the config files
+  transaction.setVersion(4, true);
+  transaction.setVersionGroupId(parseInt("0x892f2085", 16));
 
+  var inputAddresses = [];
+  var inputAmounts = [];
+
+  var i = 0;
   for (let operation of operations) {
-    transaction.to(operation.account.address, operation.amount.value);
+    if (operation.type == config.serverConfig.operationTypes.INPUT) {
+      inputAddresses[i] = operation.account.address;
+      inputAmounts[i] = parseInt(operation.amount.value);
+      metadata.relevant_inputs[i].satoshis = Math.abs(parseInt(operation.amount.value));
+      metadata.relevant_inputs[i].script = Script.fromAddress(operation.account.address).toHex();
+      i++;
+    }
   }
 
-  return {};
+  i = 0;
+  for (let operation of operations) {
+    if (operation.type == config.serverConfig.operationTypes.OUTPUT) {
+      transaction.addOutput(operation.account.address, parseInt(operation.amount.value));
+    } else if (operation.type == config.serverConfig.operationTypes.INPUT) {
+      inputAddresses[i] = operation.account.address;
+      inputAmounts[i] = parseInt(operation.amount.value);
+      i++;
+    }
+  }
+
+  var payloads = [];
+  i = 0;
+  for (let input of metadata.relevant_inputs) {
+    transaction.addInput(input.txid, input.vout);
+    const sigHash = transaction.tx.hashForZcashSignature(i,
+                                                         Buffer.from(input.script,'hex'),
+                                                         Math.abs(inputAmounts[i]),
+                                                         bitcoin.Transaction.SIGHASH_ALL).toString('hex');
+    payloads.push(Types.SigningPayload.constructFromObject({
+      address: inputAddresses[i],
+      account_identifier: {
+        address: inputAddresses[i],
+      },
+      hex_bytes: sigHash,
+      signature_type: 'ecdsa',
+    }));
+    i++
+  }
+
+  var incompleteTransaction = transaction.buildIncomplete().toHex();
+
+  var unsignedTransaction = {
+    transaction: incompleteTransaction,
+    inputAddresses: inputAddresses,
+    inputAmounts: inputAmounts,
+  };
+
+  return new Types.ConstructionPayloadsResponse(
+    Buffer.from(JSON.stringify(unsignedTransaction)).toString('hex'), 
+    payloads);
 };
 
 /**
@@ -224,20 +445,20 @@ const constructionPreprocess = async (params) => {
   const requiredAmountForAccount = {};
   const requiredBalances = [];
 
+
   for (let operation of operations) {
-    const { address } = operation.account_identifier;
+    const { address } = operation.account;
     const amount = parseInt(operation.amount.value);
 
     // Skip if receiving address.
     if (amount >= 0) continue;
 
-    const positiveAmount = -amount;
-
     /**
      * Group the required amount to the relevant account.
      */
-    requiredAmountForAccount[address] = requiredAmountForAccount[address] || { sats: 0 };
-    requiredAmountForAccount[address].sats += positiveAmount;
+    requiredAmountForAccount[address] = requiredAmountForAccount[address] || { sats: 0, coins: [] };
+    requiredAmountForAccount[address].sats += amount;
+    requiredAmountForAccount[address].coins.push(operation.coin_change.coin_identifier.identifier);
   }
 
   for (let account of Object.keys(requiredAmountForAccount)) {
@@ -247,11 +468,10 @@ const constructionPreprocess = async (params) => {
     });
   }
 
-  return Types.ConstructionPreprocessResponse().constructFromObject({
-    options: {
+  return new Types.ConstructionPreprocessResponse({
       required_balances: requiredBalances,
-    },
   })
+
 };
 
 module.exports = {
