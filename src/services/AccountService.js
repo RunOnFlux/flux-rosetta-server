@@ -120,7 +120,8 @@ const coins = async (params) => {
     }
 
     const coins = [];
-    for (let i = 0; i < accountData.result.length; ++i) {
+    // Start with the oldest UTXOs
+    for (let i = accountData.result.length-1; i >= 0; i--) {
       const txhash = await ChainIndexer.getTxHash(accountData.result[i].txid);
       const coinIdentifier = new Types.CoinIdentifier(txhash+":"+accountData.result[i].vout);
       coins.push(
