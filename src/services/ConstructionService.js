@@ -67,40 +67,16 @@ const constructionMetadata = async (params) => {
   let change = 0;
 
   for (let requiredBalance of options.required_balances) {
-    const { account, amount } = requiredBalance;
+    const { amount } = requiredBalance;
     if (amount.sats < 0) {
-      // Get the utxos accociated with that address.
-      const outputs = await ChainIndexer.getAccountUtxos(account);
-      /**
-       * Collect as many outputs as we need to fulfill
-       * the requested balance operation.
-       */
-      let missing = amount.sats;
-
-      for (var outputIndex = outputs.result.length-1; outputIndex >= 0; outputIndex--) {
-        let output = outputs.result[outputIndex];
-        if (missing >= 0) continue;
-        missing += output.sats;
-
-        /**
-         * Add this utxo to the relevant ones.
-         */
+      // We now assume that the pre-processed list of operations
+      // has picked out the inputs we want to use in this transaction.
+      for (let coin of amount.coins) {
+        const res = coin.split(':')
         relevantInputs.push({
-          txid: await ChainIndexer.getTxHash(output.txid),
-          vout: output.vout,
-        });
-      }
-
-      // Can not fulfill the request.
-      if (missing < 0) {
-        throw Errors.INSUFFICIENT_BALANCE.addDetails({
-          for_account: account,
-        });
-      }
-
-      // Utxos gave too many satoshis. Add the difference to the change.
-      if (missing > 0) {
-        change += missing;
+          txid: res[0],
+          vout: parseInt(res[1]),
+        })
       }
     }
   }
@@ -152,19 +128,6 @@ const constructionCombine = async (params) => {
 
   const transaction = new bitcoin.Transaction.fromHex(decodedTx.transaction, BitGoNetwork);
 
-  /*var i = 0;
-  for (let input of transaction.ins) {
-    const pkData = constructionCombineRequest.signatures[i].public_key.hex_bytes;
-    var pkBuffer = Buffer.from(pkData,'hex');
-    pkBuffer = pkBuffer.slice(1, pkBuffer.length);
-    const fullsig = constructionCombineRequest.signatures[i].hex_bytes;
-    transaction.setInputScript(i, Buffer.from(fullsig,'hex'));
-    i++;
-  }*/
-  //builder.sign()
-
-  //console.log(transaction);
-
   const txb = new bitcoin.TransactionBuilder(BitGoNetwork);
   // TODO: Move these into the config files
   txb.setVersion(4, true);
@@ -183,7 +146,6 @@ const constructionCombine = async (params) => {
     txb.inputs[inputIndex].prevOutType = templates.types.P2PKH;
     
     const pkData = constructionCombineRequest.signatures[inputIndex].public_key.hex_bytes;
-    var pkBuffer = Buffer.from(pkData,'hex').slice(1, pkBuffer.length);
     const fullsig = constructionCombineRequest.signatures[inputIndex].hex_bytes;
     txb.inputs[inputIndex].signatures = [Buffer.from(fullsig,'hex')];
     txb.inputs[inputIndex].pubKeys = [Buffer.from(pkData,'hex')];
