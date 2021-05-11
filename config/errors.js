@@ -24,6 +24,8 @@ const errors = {
   EXPECTED_RELEVANT_INPUTS: new Types.Error(12, 'No relevant inputs were passed to this endpoint', false),
 
   UNABLE_TO_RETRIEVE_COINS: new Types.Error(13, 'The account coins could not be retrieved', true),
+
+  UNABLE_TO_SUBMIT_BLOCK: new Types.Error(14, 'Could not submit block', true),
 };
 
 module.exports = errors;

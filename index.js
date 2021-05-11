@@ -99,24 +99,29 @@ const startSyncer = async () => {
 
 const continueSyncIfNeeded = async () => {
   const currentHeight = ChainIndexer.lastBlockSymbol;
-  const blockCountResponse = await rpc.getBlockCountAsync();
-  const blockCount = blockCountResponse.result;
 
-  if (currentHeight >= blockCount) {
-    // If the sync block height equals the best block height,
-    // set the syncer as synced.
-    ChainSyncer.setIsSynced();
-    return setTimeout(continueSyncIfNeeded, 10000);
+  try {
+    const blockCountResponse = await rpc.getBlockCountAsync();
+    const blockCount = blockCountResponse.result;
+
+    if (currentHeight >= blockCount) {
+      // If the sync block height equals the best block height,
+      // set the syncer as synced.
+      ChainSyncer.setIsSynced();
+      return setTimeout(continueSyncIfNeeded, 10000);
+    }
+
+    const nextHeight = currentHeight + 1;
+
+    // Sync the next blocks
+    const syncCount = Math.min(blockCount - nextHeight, 1000);
+    const targetHeight = nextHeight + syncCount;
+
+    await ChainSyncer.sync(nextHeight, targetHeight);
+    await ChainIndexer.saveState();
+  } catch (e) {
+    await wait(10000);
   }
-
-  const nextHeight = currentHeight + 1;
-
-  // Sync the next blocks
-  const syncCount = Math.min(blockCount - nextHeight, 1000);
-  const targetHeight = nextHeight + syncCount;
-
-  await ChainSyncer.sync(nextHeight, targetHeight);
-  await ChainIndexer.saveState();
 
   setImmediate(() => {
     // Continue to sync, but using the event queue.

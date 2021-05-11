@@ -40,15 +40,20 @@ const mempool = async (params) => {
   // eslint-disable-next-line no-unused-vars
   const { mempoolRequest } = params;
 
-  const mempoolResponse = await rpc.getRawMemPoolAsync(true);
-  const mempool = mempoolResponse.result;
+  try {
+    const mempoolResponse = await rpc.getRawMemPoolAsync(true);
+    const mempool = mempoolResponse.result;
 
-  if (!mempool) {
+    if (!mempool) {
+      throw Errors.UNABLE_TO_FETCH_MEMPOOL_TXS;
+    }
+
+    const txIds = Object.keys(mempool);
+    return new Types.MempoolResponse(txIds);
+  } catch (e) {
+    console.error(e);
     throw Errors.UNABLE_TO_FETCH_MEMPOOL_TXS;
   }
-
-  const txIds = Object.keys(mempool);
-  return new Types.MempoolResponse(txIds);
 };
 
 /**
@@ -61,15 +66,20 @@ const mempool = async (params) => {
 const mempoolTransaction = async (params) => {
   const { mempoolTransactionRequest } = params;
 
-  const txId = mempoolTransactionRequest.transaction_identifier.hash;
-  const mempoolTransactionResponse = await rpc.getRawTransactionAsync(txId, 1);
-  const mempoolTx = mempoolTransactionResponse.result;
+  try {
+    const txId = mempoolTransactionRequest.transaction_identifier.hash;
+    const mempoolTransactionResponse = await rpc.getRawTransactionAsync(txId, 1);
+    const mempoolTx = mempoolTransactionResponse.result;
 
-  if (!mempool) {
+    if (!mempool) {
+      throw Errors.UNABLE_TO_FETCH_MEMPOOL_TX;
+    }
+
+    return utils.transactionToRosettaType(mempoolTx, true);
+  } catch (e) {
+    console.log(e);
     throw Errors.UNABLE_TO_FETCH_MEMPOOL_TX;
   }
-
-  return utils.transactionToRosettaType(mempoolTx, true);
 };
 
 module.exports = {

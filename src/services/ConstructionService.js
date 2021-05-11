@@ -106,9 +106,13 @@ const constructionSubmit = async (params) => {
   const decodedTx = JSON.parse(tx.toString());
 
   const signedTransaction = decodedTx.transaction;
-  const hash = await rpc.sendRawTransactionAsync(signedTransaction);
-
-  return new Types.TransactionIdentifier(hash.result);
+  try {
+    const hash = await rpc.sendRawTransactionAsync(signedTransaction);
+    return new Types.TransactionIdentifier(hash.result);
+  } catch (e) {
+    console.error(e);
+    throw Errors.UNABLE_TO_SUBMIT_BLOCK;
+  }
 };
 
 /**
