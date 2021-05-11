@@ -418,6 +418,10 @@ const constructionPreprocess = async (params) => {
 
     // Skip if receiving address.
     if (amount >= 0) continue;
+    
+    if (operation.type == config.serverConfig.operationTypes.OUTPUT) {
+      throw Errors.INVALID_OUTPUT_OPERATION;
+    }
 
     /**
      * Group the required amount to the relevant account.

@@ -26,6 +26,7 @@ const errors = {
   UNABLE_TO_RETRIEVE_COINS: new Types.Error(13, 'The account coins could not be retrieved', true),
 
   UNABLE_TO_SUBMIT_BLOCK: new Types.Error(14, 'Could not submit block', true),
+  INVALID_OUTPUT_OPERATION: new Types.Error(15, 'Invalid Output Operation', false),
 };
 
 module.exports = errors;
