@@ -27,8 +27,8 @@ const syncerSecret = process.env.SYNCER_SECRET ||
   crypto.randomBytes(128).toString('hex');
 
 const config = {
-  version: '1.0.0',
-  rosettaVersion: RosettaSDK.Version || DEFAULT_ROSETTA_VERSION,
+  version: '1.0.1',
+  rosettaVersion: RosettaSDK.version || DEFAULT_ROSETTA_VERSION,
   fluxVersion: process.env.FLUX_VERSION,
   port: process.env.PORT || DEFAULT_LISTENING_PORT,
   host: process.env.HOST || DEFAULT_LISTENING_HOST,
