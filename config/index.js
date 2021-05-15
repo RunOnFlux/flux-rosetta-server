@@ -12,6 +12,7 @@ const DEFAULT_RPC_PROTO = 'http';
 const DEFAULT_LISTENING_PORT = 8080;
 const DEFAULT_DATA_PATH = './data';
 const DEFAULT_FLUX_NETWORK = 'mainnet';
+const DEFAULT_CONNECTION = 'flux';
   
 /**
  * syncerSecret is used by the Indexer in order to request blocks from 
@@ -49,6 +50,8 @@ const config = {
   network: process.env.FLUX_NETWORK || DEFAULT_FLUX_NETWORK,
   syncer: {},
   serverConfig,
+
+  connection: process.env.CONNECTION || DEFAULT_CONNECTION,
 };
 
 config.syncer = {
