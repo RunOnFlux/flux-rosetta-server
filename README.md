@@ -8,7 +8,7 @@
 </h3>
 <p align="center">
 	Node Version: 1.0.0<br>
-	Rosetta Version: 1.3.1
+	Rosetta Version: 1.4.10
 </p>
 <p align="center">
 	Flux Rosetta Node offering a unified API according to the standard proposed by Coinbase.
