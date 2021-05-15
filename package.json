@@ -12,6 +12,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "axios": "^0.21.1",
     "bitcoind-rpc": "^0.8.1",
     "bitcore-lib-zelcash": "git+https://github.com/zelcash/bitcore-lib-zelcash",
     "bitgo-utxo-lib": "git://github.com/ZelCore-io/bitgo-utxo-lib",
@@ -30,7 +31,7 @@
   "author": "yoshijaeger,sygem",
   "license": "MIT",
   "devDependencies": {
-    "axios": "^0.20.0",
+    "axios": "^0.21.1",
     "chai": "^4.2.0",
     "eslint": "^7.7.0",
     "eslint-config-airbnb": "^18.2.0",
