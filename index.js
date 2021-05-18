@@ -41,6 +41,7 @@ ______ _             ______               _   _          _   _           _
              Flux Node Version        ${Config.fluxVersion}
              Networks                 ${JSON.stringify(Config.serverConfig.networkIdentifiers)}
              Port                     ${Config.port}
+             Connection Type          ${Config.connection}
 `);
 
 /* Create a server configuration */
