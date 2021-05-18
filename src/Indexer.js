@@ -1103,11 +1103,13 @@ class Indexer {
         }
 
         const decodedUtxo = UtxoValueSchema.decode(utxo.value);
-        result.push({
-          txid,
-          vout,
-          sats: decodedUtxo.sats,
-        });
+        if (!decodedUtxo.spentOnBlock) {
+          result.push({
+            txid,
+            vout,
+            sats: decodedUtxo.sats,
+          });
+        }
       }
 
     } catch (e) {
