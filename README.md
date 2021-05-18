@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://www.rosetta-api.org">
-    <img width="90%" alt="Rosetta" src="docs/images/banner.png">
+    <img width="90%" alt="Rosetta" src="docs/images/banner.jpg">
   </a>
 </p>
 <h3 align="center">
@@ -27,18 +27,21 @@ git clone https://github.com/sygem/flux-rosetta-server.git
 2. Build the docker image
 ```bash
 # Build the docker image for testnet (may take a while).
-# Other build args are documented in ./Dockerfile
+# Build args are documented in ./Dockerfile
 cd flux-rosetta-server
-docker build -t flux/rosetta:latest --build-arg use_testnet=1 .
+docker build -t flux/rosetta:latest .
 ```
 3. Start the docker container
 ```bash
 # This command will start the docker container.
-# In this example, docker will forward two ports: 8080, and 12026.
-# Port 8080/tcp is the port of the rosetta api server.
-# Port 12026/tcp is the p2p testnet port.
-# If you are using mainnet, make sure you replace the port 12026 with 12024.
-docker run -p 12026:12026 -p 8080:8080 flux/rosetta:latest
+# In this example, docker will forward two ports: 8080 and 8081.
+# Port 8080/tcp is the port of the rosetta online api server.
+# Port 8081/tcp is the port of the rosetta offline api server.
+docker run -p 8080:8080 -p 8081:8081 --name rosetta flux/rosetta:latest
+
+# If you want to connect to an RPC daemon on the host
+# you can specify extra environment variables to docker
+docker run -p 8080:8080 -p 8081:8081 --network="host" -e CONNECTION=rpc -e RPC_PORT=19332 -e RPC_USER=<your rpc user> -e RPC_PASS=<your rpc password> -e RPC_HOST=127.0.0.1 --name rosetta flux/rosetta:latest
 ```
 
 ## Test
@@ -49,10 +52,12 @@ Several example requests to test the reachability of your node using curl are sh
 An example on how to validate a mainnet account balance is shown here: [Validation](./docs/Validation.md)
 
 ## Current State
-Currently, only the [Rosetta Data API](https://www.rosetta-api.org/docs/data_api_introduction.html) is implemented by this node. The Construction API will be completed soon.
+The [Rosetta Data API](https://www.rosetta-api.org/docs/data_api_introduction.html) is fully implemented by this node, as is the [Rosetta Construction API](https://www.rosetta-api.org/docs/construction_api_introduction.html). The Rosetta version is 1.4.10.
+
+The [Rosetta Indexer API](https://www.rosetta-api.org/docs/indexers.html) will be implemented at some point in the future.
 
 ## Implementation Details
-This node implementation is using the experimental [Rosetta Node SDK](https://github.com/SmartArray/digibyte-rosetta-nodeapi/tree/1.4.1).
+This node implementation is using the experimental [Rosetta Node SDK](https://github.com/sygem/rosetta-node-sdk/tree/1.4.10).
 
 A UTXO-Indexing Middleware was implemented to enable balance lookups. Historical balance lookups are supported as well.
 By using the `Syncer` class of the Rosetta SDK, the sync has become exceptionally reliable and even reorgs are supported very well. LevelDB (the same database that is being used in Bitcoin and its forks) is used to store the UTXO data. A space efficient encoding was chosen in order to avoid redundancy and to save some disk space (usage: 6.7G, as of 08th September, 2020), as described [here](docs/utxoIndexer.md).
@@ -65,8 +70,9 @@ By using the `Syncer` class of the Rosetta SDK, the sync has become exceptionall
 Note, that the addition of an UTXO database is heavily discussed in the official Bitcoin Mailgroup. As soon as this feature is added, many altcoins will probably apply the changes too, and the above UTXO middleware will most likely become obsolete.
 
 ## ToDos
-- [ ] Implement Construction API for Offline and Online Environments
+- [x] Implement Construction API for Offline and Online Environments
 - [x] Test the node using coinbase's [rosetta-cli](https://github.com/coinbase/rosetta-cli.git) ([Results](docs/LivenetValidationResults.md))
 - [x] Run the mainnet node and wait for full sync
 - [x] Test some utxo balance checks ([Results](docs/Validation.md))
 - [ ] Setup Continious Integration
+- [ ] Indexer API
