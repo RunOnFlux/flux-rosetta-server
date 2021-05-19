@@ -205,7 +205,7 @@ const constructionHash = async (params) => {
   const signedTransaction = decodedTx.transaction;
   const transaction = new bitcoin.Transaction.fromHex(signedTransaction, BitGoNetwork);
 
-  return new Types.TransactionIdentifierResponse(new Types.TransactionIdentifier(transaction.getHash().toString('hex')));
+  return new Types.TransactionIdentifierResponse(new Types.TransactionIdentifier(transaction.getId().toString('hex')));
 };
 
 /**
