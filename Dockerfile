@@ -27,7 +27,6 @@ COPY package*.json "/root/rosetta-node/"
 COPY config "/root/rosetta-node/config"
 COPY index.js "/root/rosetta-node/index.js"
 COPY src "/root/rosetta-node/src"
-COPY data/utxo "${rootdatadir}/utxo"
 
 # Set some environment variables
 ENV ROOTDATADIR "$rootdatadir"

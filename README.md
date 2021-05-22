@@ -37,11 +37,11 @@ docker build -t flux/rosetta:latest .
 # In this example, docker will forward two ports: 8080 and 8081.
 # Port 8080/tcp is the port of the rosetta online api server.
 # Port 8081/tcp is the port of the rosetta offline api server.
-docker run -p 8080:8080 -p 8081:8081 --name rosetta flux/rosetta:latest
+docker run -p 8080:8080 -p 8081:8081 -d --name rosetta flux/rosetta:latest
 
 # If you want to connect to an RPC daemon on the host
 # you can specify extra environment variables to docker
-docker run -p 8080:8080 -p 8081:8081 --network="host" -e CONNECTION=rpc -e RPC_PORT=19332 -e RPC_USER=<your rpc user> -e RPC_PASS=<your rpc password> -e RPC_HOST=127.0.0.1 --name rosetta flux/rosetta:latest
+docker run -p 8080:8080 -p 8081:8081 --network="host" -e CONNECTION=rpc -e RPC_PORT=19332 -e RPC_USER=<your rpc user> -e RPC_PASS=<your rpc password> -e RPC_HOST=127.0.0.1 -d --name rosetta flux/rosetta:latest
 ```
 
 ## Test
